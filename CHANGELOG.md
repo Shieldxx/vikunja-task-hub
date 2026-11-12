@@ -6,6 +6,12 @@ The project uses semantic versioning. Dates use ISO 8601 format.
 
 ## [Unreleased]
 
+## [0.38.15+shieldxx.1] - 2026-11-12 (Shieldxx fork)
+
+### Changed
+
+- Home Assistant card theme follows the theme's card surface (`--ha-card-background`) and draws the theme's glass layer (`--ha-card-glass-tint`, `--ha-card-backdrop-filter`), so the card blends with glass themes such as Frosted Glass instead of an opaque menu surface. Inputs and buttons are translucent.
+
 ## [0.38.15] - 2026-10-05
 
 ### Fixed

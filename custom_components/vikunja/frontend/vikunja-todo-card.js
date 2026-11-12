@@ -531,8 +531,9 @@ class VikunjaTodoCard extends HTMLElement {
   _appearance() {
     if (this._cardTheme === "home_assistant") {
       return {
-        primary: "var(--card-background-color)",
-        alternate: "var(--secondary-background-color)",
+        // Shieldxx fork: follow the theme's card surface (transparent on glass themes such as Frosted Glass)
+        primary: "var(--ha-card-background, var(--card-background-color))",
+        alternate: "color-mix(in srgb, var(--primary-text-color) 4%, transparent)",
         text: undefined,
         accent: undefined,
         reportPaper: false,
@@ -904,11 +905,12 @@ class VikunjaTodoCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host { display:block; min-width:0; width:100%; grid-column:1 / -1; }
-        ha-card { overflow:hidden; width:100%; background:var(--vth-row-primary,var(--card-background-color)); color:var(--primary-text-color); }
+        ha-card { overflow:hidden; width:100%; background:var(--vth-row-primary,var(--card-background-color)); color:var(--primary-text-color); position:relative; isolation:isolate; }
+        ha-card::before { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; border-radius:inherit; background:var(--ha-card-glass-tint,none); box-shadow:var(--ha-card-glass-inset-shadow,none); backdrop-filter:var(--ha-card-backdrop-filter,none); -webkit-backdrop-filter:var(--ha-card-backdrop-filter,none); }
         .toolbar { display:grid; grid-template-columns:repeat(2,minmax(260px,480px)); gap:12px; padding:14px; align-items:end; justify-content:start; }
         select,input,button { font:inherit; color:var(--primary-text-color); }
-        select,input { min-width:0; border:1px solid var(--divider-color); border-radius:8px; background:var(--card-background-color); padding:9px 10px; }
-        button { border:0; border-radius:8px; background:var(--secondary-background-color); padding:9px 11px; cursor:pointer; }
+        select,input { min-width:0; border:1px solid var(--divider-color); border-radius:8px; background:color-mix(in srgb, var(--card-background-color) 55%, transparent); padding:9px 10px; }
+        button { border:0; border-radius:8px; background:color-mix(in srgb, var(--primary-text-color) 8%, transparent); padding:9px 11px; cursor:pointer; }
         button.danger { color:var(--error-color); }
         button.manage-icon { min-width:44px; min-height:44px; padding:5px; font-size:26px; line-height:1; }
         .selector-group { display:grid; grid-template-columns:auto minmax(160px,320px); gap:7px; min-width:0; align-items:center; }
