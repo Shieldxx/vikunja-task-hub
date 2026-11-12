@@ -1,4 +1,4 @@
-import { TRANSLATIONS } from "./vikunja-todo-card-translations.js?v=0.38.15-shieldxx.5";
+import { TRANSLATIONS } from "./vikunja-todo-card-translations.js?v=0.38.15-shieldxx.6";
 
 const CARD_TYPE = "vikunja-todo-card";
 const STORAGE_PREFIX = "vikunja-todo-card:selected:";
@@ -118,6 +118,12 @@ class VikunjaTodoCard extends HTMLElement {
     document.addEventListener("click", this._outsideMenuClickHandler);
     document.addEventListener("keydown", this._escapeKeyHandler);
     window.addEventListener(VIEW_MODE_EVENT, this._viewModeChangeHandler);
+    // Shieldxx fork: phones get the compact list even when the card is configured for the table.
+    if (!this._narrowQuery) {
+      this._narrowQuery = window.matchMedia("(max-width: 760px)");
+      this._narrowHandler = () => this._render();
+    }
+    this._narrowQuery.addEventListener("change", this._narrowHandler);
     if (!this._timerTicker)
       this._timerTicker = setInterval(() => this._updateElapsedTimers(), 1000);
     if (this._hass) {
@@ -131,6 +137,7 @@ class VikunjaTodoCard extends HTMLElement {
     document.removeEventListener("click", this._outsideMenuClickHandler);
     document.removeEventListener("keydown", this._escapeKeyHandler);
     window.removeEventListener(VIEW_MODE_EVENT, this._viewModeChangeHandler);
+    this._narrowQuery?.removeEventListener("change", this._narrowHandler);
     clearInterval(this._timerTicker);
     this._timerTicker = undefined;
     this._unsubscribeTimeTracking?.();
@@ -407,8 +414,11 @@ class VikunjaTodoCard extends HTMLElement {
     }
   }
 
-  async _action(action, values = {}) {
+  async _action(action, values = {}, options = {}) {
     if (!this._hass) return;
+    // Shieldxx fork: snapshot done-states so complete/reopen/delete can be undone.
+    const doneBefore = new Map((this._data?.tasks ?? []).map((task) => [Number(task.id), Boolean(task.done)]));
+    let succeeded = false;
     this._loading = true;
     this._error = undefined;
     this._render();
@@ -439,12 +449,43 @@ class VikunjaTodoCard extends HTMLElement {
         this._editingTask = this._data?.tasks.find(
           (task) => Number(task.id) === Number(editingTaskId),
         );
+      succeeded = true;
     } catch (error) {
       this._error = error?.message ?? String(error);
     } finally {
       this._loading = false;
       this._render();
     }
+    if (succeeded && !options.noUndo) this._offerUndo(action, values, doneBefore);
+  }
+
+  _offerUndo(action, values, doneBefore) {
+    let message;
+    let undo;
+    if (action === "task_delete" || action === "task_bulk_delete") {
+      const ids = action === "task_delete" ? [Number(values.task_id)] : (values.task_ids ?? []).map(Number);
+      if (!ids.length) return;
+      message = ids.length === 1 ? this._t("undoTaskDeleted") : `${this._t("undoTasksDeleted")} (${ids.length})`;
+      undo = () => this._action("task_restore", { task_ids: ids }, { noUndo: true });
+    } else if ((action === "task_update" || action === "task_bulk_update") && "done" in values) {
+      const ids = action === "task_update" ? [Number(values.task_id)] : (values.task_ids ?? []).map(Number);
+      const changed = ids.filter((id) => doneBefore.has(id) && doneBefore.get(id) !== Boolean(values.done));
+      if (!changed.length) return;
+      message = values.done
+        ? (changed.length === 1 ? this._t("undoTaskCompleted") : `${this._t("undoTasksCompleted")} (${changed.length})`)
+        : (changed.length === 1 ? this._t("undoTaskReopened") : `${this._t("undoTasksReopened")} (${changed.length})`);
+      undo = () => changed.length === 1
+        ? this._action("task_update", { task_id: changed[0], done: !values.done }, { noUndo: true })
+        : this._action("task_bulk_update", { task_ids: changed, done: !values.done }, { noUndo: true });
+    } else {
+      return;
+    }
+    // Home Assistant's own toast (bottom of the screen) with an action button.
+    this.dispatchEvent(new CustomEvent("hass-notification", {
+      bubbles: true,
+      composed: true,
+      detail: { message, duration: 8000, dismissable: true, action: { text: this._t("undo"), action: undo } },
+    }));
   }
 
   _storageKey() {
@@ -545,8 +586,13 @@ class VikunjaTodoCard extends HTMLElement {
     return { ...colors, reportPaper: this._cardTheme.startsWith("dot_matrix_") };
   }
 
+  _activeViewMode() {
+    const narrow = this._narrowQuery?.matches && this._config?.auto_compact !== false;
+    return narrow && this._viewMode === "table" ? "compact" : this._viewMode;
+  }
+
   _themeIsActive() {
-    return this._viewMode === "table" || this._applyThemeToCompact;
+    return this._activeViewMode() === "table" || this._applyThemeToCompact;
   }
 
   _appearanceStyle() {
@@ -865,7 +911,7 @@ class VikunjaTodoCard extends HTMLElement {
       )
       .join("");
     const displayed = [...this._filteredTasks("")].sort((left, right) =>
-      this._viewMode === "table"
+      this._activeViewMode() === "table"
         ? this._compareTasks(left, right)
         : this._compactSort(left, right),
     );
@@ -1193,7 +1239,7 @@ class VikunjaTodoCard extends HTMLElement {
           !data
             ? `<div class="status">${this._t("loading")}</div>`
             : `
-          ${this._viewMode === "table" ? this._tableSections(active, completed, reserveColorSpace) : `<div class="list active-list">${active.map((task) => this._taskRow(task, reserveColorSpace)).join("")}<div class="empty active-empty" ${active.length ? "hidden" : ""}>${this._t("noActive")}</div></div><details class="completed"><summary>${this._t("completed")} (<span class="completed-count">${completed.length}</span>)</summary><div class="list">${completed.map((task) => this._taskRow(task, reserveColorSpace)).join("")}<div class="empty completed-empty" ${completed.length ? "hidden" : ""}>${this._t("noCompleted")}</div></div></details>`}
+          ${this._activeViewMode() === "table" ? this._tableSections(active, completed, reserveColorSpace) : `<div class="list active-list">${active.map((task) => this._taskRow(task, reserveColorSpace)).join("")}<div class="empty active-empty" ${active.length ? "hidden" : ""}>${this._t("noActive")}</div></div><details class="completed"><summary>${this._t("completed")} (<span class="completed-count">${completed.length}</span>)</summary><div class="list">${completed.map((task) => this._taskRow(task, reserveColorSpace)).join("")}<div class="empty completed-empty" ${completed.length ? "hidden" : ""}>${this._t("noCompleted")}</div></div></details>`}
         `
         }
         <div class="card-links">

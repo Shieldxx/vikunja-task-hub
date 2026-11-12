@@ -6,6 +6,13 @@ The project uses semantic versioning. Dates use ISO 8601 format.
 
 ## [Unreleased]
 
+## [0.38.15-shieldxx.6] - 2026-11-12 (Shieldxx fork)
+
+### Added
+
+- Phones (viewport up to 760 px) get the compact list even when the card is configured for the table. Set `auto_compact: false` to keep the table.
+- Undo: after completing, reopening or deleting tasks (single or bulk), Home Assistant's toast offers **Undo** for 8 seconds. Deleted tasks are restored from Vikunja's trash through the new `task_restore` dashboard action (`/api/v2/tasks/{id}/restore`).
+
 ## [0.38.15-shieldxx.5] - 2026-11-12 (Shieldxx fork)
 
 ### Added

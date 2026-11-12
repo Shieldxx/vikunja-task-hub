@@ -287,6 +287,7 @@ ACTION_SCHEMA = {
             "task_delete",
             "task_bulk_update",
             "task_bulk_delete",
+            "task_restore",
             "project_create",
             "project_delete",
             "label_create",
@@ -507,6 +508,15 @@ async def websocket_dashboard_action(hass, connection, msg) -> None:
                         done_changed=("done" in msg and bool(msg["done"]) != previous_done),
                     )
                 )
+        elif action == "task_restore":
+            # Shieldxx fork: undo for deletes. Vikunja 2.x moves deleted tasks to a trash that
+            # only the v2 API can restore; pyvikunja targets /api/v1, so call it directly.
+            base = str(api.host).rstrip("/")
+            for task_id in msg.get("task_ids", []):
+                response = await api.client.request(
+                    "POST", f"{base}/api/v2/tasks/{int(task_id)}/restore", headers=api.headers
+                )
+                response.raise_for_status()
         elif action == "task_bulk_delete":
             for task_id in msg.get("task_ids", []):
                 task = await api.get_task(task_id)
