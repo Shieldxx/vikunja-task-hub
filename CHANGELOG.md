@@ -6,6 +6,16 @@ The project uses semantic versioning. Dates use ISO 8601 format.
 
 ## [Unreleased]
 
+## [0.38.15-shieldxx.3] - 2026-11-12 (Shieldxx fork)
+
+### Changed
+
+- A task with a description opens in preview; the button switches to **Edit** (source) and back to **Preview**.
+
+### Fixed
+
+- Toolbar formatting (bold, italic, lists, code, ...) can be undone with Ctrl+Z / Cmd+Z: it now inserts text through the browser's editing pipeline instead of `setRangeText`, which bypassed the undo history.
+
 ## [0.38.15-shieldxx.2] - 2026-11-12 (Shieldxx fork)
 
 ### Fixed

@@ -806,6 +806,7 @@ export const TRANSLATIONS = {
     "description": "Description",
     "preview": "Preview",
     "backDescription": "Back to description",
+    "editDescription": "Edit",
     "dueDate": "Due date",
     "attachments": "Attachments",
     "noAttachments": "No attachments.",

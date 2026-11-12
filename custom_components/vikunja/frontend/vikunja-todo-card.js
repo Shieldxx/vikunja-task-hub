@@ -1560,8 +1560,8 @@ class VikunjaTodoCard extends HTMLElement {
         <label class="field">${this._t("title")}<input name="title" value="${this._escape(task.title)}" required></label>
         <div class="field description-field">
           <span>${this._t("description")}</span>
-          <div class="editor-tabs"><button type="button" class="preview-toggle">${this._t("preview")}</button></div>
-          <div class="description-edit-pane">
+          <div class="editor-tabs"><button type="button" class="preview-toggle">${task.description ? this._t("editDescription") : this._t("preview")}</button></div>
+          <div class="description-edit-pane" ${task.description ? "hidden" : ""}>
             <div class="format-toolbar" aria-label="${this._t("description")}">
               <button type="button" data-format="heading" title="${this._t("heading")}" aria-label="${this._t("heading")}">H</button><button type="button" data-format="bold" title="${this._t("bold")}" aria-label="${this._t("bold")}">B</button><button type="button" data-format="italic" title="${this._t("italic")}" aria-label="${this._t("italic")}"><i>I</i></button>
               <button type="button" data-format="bullet" title="${this._t("bulletedList")}" aria-label="${this._t("bulletedList")}">•</button><button type="button" data-format="numbered" title="${this._t("numberedList")}" aria-label="${this._t("numberedList")}">1.</button><button type="button" data-format="quote" title="${this._t("quote")}" aria-label="${this._t("quote")}">❯</button>
@@ -1569,7 +1569,7 @@ class VikunjaTodoCard extends HTMLElement {
             </div>
             <textarea class="description-editor" name="description">${this._escape(this._htmlToMarkdown(task.description ?? ""))}</textarea>
           </div>
-          <div class="description-preview" hidden><ha-markdown></ha-markdown></div>
+          <div class="description-preview" ${task.description ? "" : "hidden"}><ha-markdown></ha-markdown></div>
         </div>
         <label class="field">${this._t("dueDate")}<input name="due" type="date" value="${this._escape(due)}"></label>
         ${bucketEditor}
@@ -2414,7 +2414,7 @@ class VikunjaTodoCard extends HTMLElement {
       editor.querySelector(".description-edit-pane").hidden = showPreview;
       preview.hidden = !showPreview;
       event.currentTarget.textContent = showPreview
-        ? this._t("backDescription")
+        ? this._t("editDescription")
         : this._t("preview");
       if (showPreview) updatePreview();
       else description.focus();
@@ -3109,9 +3109,19 @@ class VikunjaTodoCard extends HTMLElement {
         .map((line) => `${prefix}${line}`)
         .join("\n");
     }
-    textarea.setRangeText(replacement, start, end, "end");
+    // Shieldxx fork: setRangeText bypasses the undo history; insertText keeps Ctrl+Z working.
     textarea.focus();
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.setSelectionRange(start, end);
+    let inserted = false;
+    try {
+      inserted = document.execCommand("insertText", false, replacement);
+    } catch (_error) {
+      inserted = false;
+    }
+    if (!inserted) {
+      textarea.setRangeText(replacement, start, end, "end");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    }
   }
 }
 
