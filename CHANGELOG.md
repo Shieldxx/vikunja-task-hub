@@ -6,6 +6,12 @@ The project uses semantic versioning. Dates use ISO 8601 format.
 
 ## [Unreleased]
 
+## [0.38.15-shieldxx.5] - 2026-11-12 (Shieldxx fork)
+
+### Added
+
+- Sensor `sensor.vikunja_tasks_due_soon`: number of open tasks that are overdue or due within 7 days, with the tasks (title, project, due, overdue/today/tomorrow flags, link) as attributes. Polls every 5 minutes and right after Task Hub actions; uses the integration's own connection, so no extra token or rest sensor.
+
 ## [0.38.15-shieldxx.4] - 2026-11-12 (Shieldxx fork)
 
 - Cache busting: the translations import in the card carries the fork version too. When releasing, bump `VERSION` in `const.py`, `version` in `manifest.json` and the `?v=` of the translations import together.

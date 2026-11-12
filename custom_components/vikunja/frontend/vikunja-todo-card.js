@@ -1,4 +1,4 @@
-import { TRANSLATIONS } from "./vikunja-todo-card-translations.js?v=0.38.15-shieldxx.4";
+import { TRANSLATIONS } from "./vikunja-todo-card-translations.js?v=0.38.15-shieldxx.5";
 
 const CARD_TYPE = "vikunja-todo-card";
 const STORAGE_PREFIX = "vikunja-todo-card:selected:";

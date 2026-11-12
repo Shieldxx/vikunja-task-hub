@@ -27,7 +27,7 @@ from .frontend import async_register_frontend
 from .services import async_register_services
 from .time_tracking import TaskTimeTracker
 
-PLATFORMS = [Platform.EVENT]
+PLATFORMS = [Platform.EVENT, Platform.SENSOR]  # Shieldxx fork: + due-soon sensor
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

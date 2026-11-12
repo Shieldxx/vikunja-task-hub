@@ -2,7 +2,7 @@ import logging
 
 DOMAIN = "vikunja"
 INTEGRATION_NAME = "Vikunja Task Hub"
-VERSION = "0.38.15-shieldxx.4"  # Shieldxx fork: bumped so browsers reload the patched card
+VERSION = "0.38.15-shieldxx.5"  # Shieldxx fork: bumped so browsers reload the patched card
 
 CONF_BASE_URL = "url"
 CONF_TOKEN = "api_key"
