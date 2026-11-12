@@ -6,6 +6,10 @@ The project uses semantic versioning. Dates use ISO 8601 format.
 
 ## [Unreleased]
 
+## [0.38.15-shieldxx.4] - 2026-11-12 (Shieldxx fork)
+
+- Cache busting: the translations import in the card carries the fork version too. When releasing, bump `VERSION` in `const.py`, `version` in `manifest.json` and the `?v=` of the translations import together.
+
 ## [0.38.15-shieldxx.3] - 2026-11-12 (Shieldxx fork)
 
 ### Changed
