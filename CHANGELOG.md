@@ -6,6 +6,12 @@ The project uses semantic versioning. Dates use ISO 8601 format.
 
 ## [Unreleased]
 
+## [0.38.15-shieldxx.2] - 2026-11-12 (Shieldxx fork)
+
+### Fixed
+
+- Task descriptions: Vikunja stores rich text as HTML (web UI, API and its MCP server), but the editor is Markdown, so it showed raw tags such as `<p>` and `<code>`. The editor now converts HTML to Markdown when opening a task and Markdown back to HTML when saving (paragraphs, line breaks, bold, italic, inline code, code blocks, links, lists, headings, quotes). Plain-text descriptions are left as they are.
+
 ## [0.38.15+shieldxx.1] - 2026-11-12 (Shieldxx fork)
 
 ### Changed

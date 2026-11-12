@@ -1567,7 +1567,7 @@ class VikunjaTodoCard extends HTMLElement {
               <button type="button" data-format="bullet" title="${this._t("bulletedList")}" aria-label="${this._t("bulletedList")}">•</button><button type="button" data-format="numbered" title="${this._t("numberedList")}" aria-label="${this._t("numberedList")}">1.</button><button type="button" data-format="quote" title="${this._t("quote")}" aria-label="${this._t("quote")}">❯</button>
               <button type="button" data-format="link" title="${this._t("link")}" aria-label="${this._t("link")}">🔗</button><button type="button" data-format="code" title="${this._t("inlineCode")}" aria-label="${this._t("inlineCode")}">&lt;/&gt;</button>
             </div>
-            <textarea class="description-editor" name="description">${this._escape(task.description ?? "")}</textarea>
+            <textarea class="description-editor" name="description">${this._escape(this._htmlToMarkdown(task.description ?? ""))}</textarea>
           </div>
           <div class="description-preview" hidden><ha-markdown></ha-markdown></div>
         </div>
@@ -2443,7 +2443,7 @@ class VikunjaTodoCard extends HTMLElement {
       void this._action("task_update", {
         task_id,
         title: String(form.get("title") ?? "").trim(),
-        description: String(form.get("description") ?? ""),
+        description: this._markdownToHtml(String(form.get("description") ?? "")),
         due: String(form.get("due") ?? "") || null,
         done: form.get("done") === "on",
         repeat_after: recurrence.repeatAfter,
@@ -2772,6 +2772,138 @@ class VikunjaTodoCard extends HTMLElement {
       this._error = error?.message ?? String(error);
     }
     this._render();
+  }
+
+  // Shieldxx fork: Vikunja stores task descriptions as HTML (its web UI, API and MCP all
+  // use HTML), but this editor is Markdown. Convert on load and on save so formatting
+  // round-trips instead of showing raw tags. Covers the toolbar's subset.
+  _looksLikeHtml(value) {
+    return /<\/?(p|br|strong|b|em|i|code|pre|ul|ol|li|h[1-6]|a|blockquote|div|span)\b[^>]*>/i.test(String(value));
+  }
+
+  _htmlToMarkdown(value) {
+    const source = String(value ?? "");
+    if (!this._looksLikeHtml(source)) return source;
+    const doc = new DOMParser().parseFromString(source, "text/html");
+    const inline = (node) => Array.from(node.childNodes).map(walk).join("");
+    const walk = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) return node.textContent.replace(/\s+/g, " ");
+      if (node.nodeType !== Node.ELEMENT_NODE) return "";
+      const tag = node.tagName.toLowerCase();
+      const inner = () => inline(node);
+      switch (tag) {
+        case "br":
+          return "\n";
+        case "strong":
+        case "b": {
+          const t = inner().trim();
+          return t ? `**${t}**` : "";
+        }
+        case "em":
+        case "i": {
+          const t = inner().trim();
+          return t ? `*${t}*` : "";
+        }
+        case "code":
+          return node.closest("pre") ? node.textContent : "`" + node.textContent + "`";
+        case "pre":
+          return "\n\n```\n" + node.textContent.replace(/\n$/, "") + "\n```\n\n";
+        case "a": {
+          const href = node.getAttribute("href") || "";
+          const t = inner().trim() || href;
+          return /^https?:/i.test(href) ? `[${t}](${href})` : t;
+        }
+        case "h1":
+        case "h2":
+        case "h3":
+        case "h4":
+        case "h5":
+        case "h6":
+          return `\n\n${"#".repeat(Number(tag[1]))} ${inner().trim()}\n\n`;
+        case "blockquote":
+          return "\n\n" + inner().trim().split("\n").map((l) => `> ${l}`).join("\n") + "\n\n";
+        case "ul":
+        case "ol": {
+          const items = Array.from(node.children).filter((c) => c.tagName.toLowerCase() === "li");
+          return "\n\n" + items.map((li, i) => `${tag === "ol" ? `${i + 1}.` : "-"} ${inline(li).trim()}`).join("\n") + "\n\n";
+        }
+        case "p":
+        case "div":
+          return `\n\n${inner().trim()}\n\n`;
+        default:
+          return inner();
+      }
+    };
+    return inline(doc.body).replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  _markdownToHtml(value) {
+    const text = String(value ?? "").replace(/\r\n?/g, "\n").trim();
+    if (!text) return "";
+    if (this._looksLikeHtml(text)) return text;
+    const esc = (t) => this._escape(t);
+    const inlineMd = (t) => {
+      const codes = [];
+      let out = esc(t).replace(/`([^`]+)`/g, (_, c) => {
+        codes.push(c);
+        return `\u0000${codes.length - 1}\u0000`;
+      });
+      out = out
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, href) => `<a href="${href}">${label}</a>`)
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, "$1<em>$2</em>");
+      return out.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[Number(i)]}</code>`);
+    };
+    const isList = (l) => /^\s*([-*]|\d+\.)\s+/.test(l);
+    const blocks = [];
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; ) {
+      const line = lines[i];
+      if (/^```/.test(line)) {
+        const body = [];
+        for (i += 1; i < lines.length && !/^```/.test(lines[i]); i += 1) body.push(lines[i]);
+        i += 1;
+        blocks.push(`<pre><code>${esc(body.join("\n"))}</code></pre>`);
+        continue;
+      }
+      if (!line.trim()) {
+        i += 1;
+        continue;
+      }
+      const heading = line.match(/^(#{1,6})\s+(.*)$/);
+      if (heading) {
+        const n = heading[1].length;
+        blocks.push(`<h${n}>${inlineMd(heading[2])}</h${n}>`);
+        i += 1;
+        continue;
+      }
+      if (isList(line)) {
+        const ordered = /^\s*\d+\.\s+/.test(line);
+        const items = [];
+        while (i < lines.length && isList(lines[i])) {
+          items.push(`<li>${inlineMd(lines[i].replace(/^\s*([-*]|\d+\.)\s+/, ""))}</li>`);
+          i += 1;
+        }
+        blocks.push(ordered ? `<ol>${items.join("")}</ol>` : `<ul>${items.join("")}</ul>`);
+        continue;
+      }
+      if (/^>\s?/.test(line)) {
+        const quote = [];
+        while (i < lines.length && /^>\s?/.test(lines[i])) {
+          quote.push(lines[i].replace(/^>\s?/, ""));
+          i += 1;
+        }
+        blocks.push(`<blockquote><p>${quote.map(inlineMd).join("<br>")}</p></blockquote>`);
+        continue;
+      }
+      const para = [];
+      while (i < lines.length && lines[i].trim() && !/^(```|#{1,6}\s|>\s?)/.test(lines[i]) && !isList(lines[i])) {
+        para.push(lines[i]);
+        i += 1;
+      }
+      blocks.push(`<p>${para.map(inlineMd).join("<br>")}</p>`);
+    }
+    return blocks.join("");
   }
 
   _plainText(value) {
